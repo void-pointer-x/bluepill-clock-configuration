@@ -16,51 +16,53 @@
 
 #include <stm32f1xx.h>
 #include <stdint.h>
-#include <lcd.h>
-#include <timer.h>
-#include <uart.h>
-#include <stdio.h>
 
-char msg[28];
-
+/**
+ * @brief Configure and initialise clock for SysCLK of 72 MHz
+ * 
+ */
 void init_clock(void)
 {
-    // Conf clock : 72MHz using HSE 8MHz crystal w/ PLL X 9 (8MHz x 9 = 72MHz)
-    FLASH->ACR      |= FLASH_ACR_LATENCY_2; // Two wait states, per datasheet
-    RCC->CFGR       |= RCC_CFGR_PPRE1_2;    // prescale AHB1 = HCLK/2
-    RCC->CR         |= RCC_CR_HSEON;        // enable HSE clock
-    while( !(RCC->CR & RCC_CR_HSERDY) );    // wait for the HSEREADY flag
-    
-    RCC->CFGR       |= RCC_CFGR_PLLSRC;     // set PLL source to HSE
-    RCC->CFGR       |= RCC_CFGR_PLLMULL9;   // multiply by 9
-    RCC->CR         |= RCC_CR_PLLON;        // enable the PLL
-    while( !(RCC->CR & RCC_CR_PLLRDY) );    // wait for the PLLRDY flag
-    
-    RCC->CFGR       |= RCC_CFGR_SW_PLL;     // set clock source to pll
+	FLASH->ACR	|= FLASH_ACR_LATENCY_2; 	// Two wait states, per datasheet
+	RCC->CFGR	|= RCC_CFGR_PPRE1_2;		// prescale AHB1 = HCLK/2
+	RCC->CFGR 	|= RCC_CFGR_PLLXTPRE_HSE;	// PREDIV1 = 0
+	RCC->CR 	|= RCC_CR_HSEON; 			// enable HSE clock
+	while (!(RCC->CR & RCC_CR_HSERDY))
+		; // wait for the HSEREADY flag
 
-    while( !(RCC->CFGR & RCC_CFGR_SWS_PLL) );    // wait for PLL to be CLK
-    
-    SystemCoreClockUpdate();                // calculate the SYSCLOCK value
+	RCC->CFGR 	|= RCC_CFGR_PLLSRC;			// set PLL source to HSE
+	RCC->CFGR 	|= RCC_CFGR_PLLMULL9; 		// multiply by 9
+	RCC->CR |= RCC_CR_PLLON;				// enable the PLL
+	while (!(RCC->CR & RCC_CR_PLLRDY))
+		; // wait for the PLLRDY flag
+
+	RCC->CFGR 	|= RCC_CFGR_SW_PLL; 		// set clock source to pll
+
+	while (!(RCC->CFGR & RCC_CFGR_SWS_PLL))
+		; // wait for PLL to be CLK
+
+	SystemCoreClockUpdate(); 				// calculate the SYSCLOCK value
 }
 
+void init_gpio()
+{
+	RCC->APB2ENR |= RCC_APB2ENR_IOPCEN;
+	GPIOC->CRH |= 0x02 << ((13 - 8) << 2);
+}
 
 int main(void)
 {
-	// init_clock();
-	USART1_init(9600U);
-	
-	int ret = SysTick_Config(SystemCoreClock/1000);
+	init_clock();
+	init_gpio();
+
+	int ret = SysTick_Config(SystemCoreClock / 1000);
 	if (ret < 0)
 		while (1)
 			;
 
 	while (1)
-	{	
-		sprintf(msg, "Time elapsed: %lu ms\r\n", msTicks);
-		putstr(msg);
-		GPIOA->ODR ^= 1U << 4;
-		delay(5000U);
+	{
+		GPIOC->ODR ^= 1U << 13;
+		delay(500U);
 	}
-	
-	
 }
